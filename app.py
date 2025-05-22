@@ -17,13 +17,15 @@ LOG_FILE_PATH = "logs/flask_app.log"
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 LOG_LEVEL = logging.DEBUG
 
-FLASK_APP_PORT = 3100
+FLASK_APP_PORT = 5100
 FLASK_APP_NAME = "moonshot-ollama-adapter"
 FLASK_IS_DEBUG_MODE = True
 FLASK_HTTP_MEDIA_TYPE = "application/json"
 
 INFERENCE_MODEL = "llama3:8b"
+INFERENCE_MODEL_MOCK = "inference-mock"
 EVALUATOR_MODEL = "llama-guard3:8b"
+EVALUATOR_MODEL_MOCK = "evaluator-mock"
 
 
 # Module methods
@@ -44,36 +46,51 @@ def get_custom_logger(file_name, level, log_format) -> logging.Logger:
 
 def handle_moonshot_request(http_request, model_name) -> Response:
     """Function handling POST requests to /inference endpoint."""
-    moonshot_prompt = http_request.json['inputs']
-    ollama_response = handle_moonshot_prompt_request(
-        prompt=moonshot_prompt,
-        model_name=model_name
+
+    try:
+        logger.info("http_request: %s", http_request)
+        moonshot_prompt = http_request.json['messages'][0]['content']
+        ollama_response = handle_moonshot_prompt_request(
+            prompt=moonshot_prompt,
+            model_name=model_name
+            )
+        http_response = app.response_class(
+            response=json.dumps({"choices":[{"message": {"content": ollama_response}}]}),
+            status=HTTPStatus.OK,
+            mimetype=FLASK_HTTP_MEDIA_TYPE
         )
-    http_response = app.response_class(
-        response=json.dumps([{'generated_text': ollama_response}]),
-        status=HTTPStatus.OK,
-        mimetype=FLASK_HTTP_MEDIA_TYPE
-    )
+    
+    except Exception as e:
+        logger.error("Error: %s", e)
+        http_response = app.response_class(
+            response=json.dumps([{'error': str(e)}]),
+            status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            mimetype=FLASK_HTTP_MEDIA_TYPE
+        )
 
     return http_response
 
 
 def handle_moonshot_prompt_request(prompt, model_name):
     """Function pass prompt to Ollama model and get response output."""
-
     prompt_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     logger.info("Prompt Time: %s - Prompt Input: %s%s%s",
                 prompt_time,
                 '<PROMPT_START>', prompt, '<PROMPT_END>')
 
-    model_output = ollama.chat(
-        model=model_name,
-        messages=[{
-            'role': 'user',
-            'content': prompt,
-        }])
-
-    response = model_output['message']['content']
+    if model_name == INFERENCE_MODEL_MOCK:
+        response = "Ollama is not used in this environment."
+    elif model_name == EVALUATOR_MODEL_MOCK:
+        response = "unsafe\nS2"
+    else:
+        ollama_output = ollama.chat(
+            model=model_name,
+            messages=[{
+                'role': 'user',
+                'content': prompt,
+            }])
+        
+        response = ollama_output['message']['content']
 
     logger.info("Prompt Time: %s - Model Response: %s%s%s",
                 prompt_time,
@@ -108,6 +125,25 @@ def handle_evaluator_prompt():
         model_name=EVALUATOR_MODEL
     )
 
+@app.route('/inference/mock', methods=[HTTPMethod.POST])
+def handle_inference_prompt_with_mock():
+    """
+    Function handling Moonshot prompt request for an mock response.
+    """
+    return handle_moonshot_request(
+        http_request=request,
+        model_name=INFERENCE_MODEL_MOCK
+    )
+
+@app.route('/evaluate/mock', methods=[HTTPMethod.POST])
+def handle_evaluator_prompt_with_mock():
+    """
+    Function handling Moonshot prompt request for an mock response.
+    """
+    return handle_moonshot_request(
+        http_request=request,
+        model_name=EVALUATOR_MODEL_MOCK
+    )
 
 if __name__ == '__main__':
     app.run(debug=FLASK_IS_DEBUG_MODE, port=FLASK_APP_PORT)
