@@ -61,7 +61,7 @@ def handle_moonshot_request(http_request, model_name) -> Response:
         )
     
     except Exception as e:
-        logger.error("Error: %s", e)
+        logger.exception("Error: %s", e)
         http_response = app.response_class(
             response=json.dumps([{'error': str(e)}]),
             status=HTTPStatus.INTERNAL_SERVER_ERROR,
