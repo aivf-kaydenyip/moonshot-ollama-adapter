@@ -145,5 +145,17 @@ def handle_evaluator_prompt_with_mock():
         model_name=EVALUATOR_MODEL_MOCK
     )
 
+@app.route('/inference/mock/azure-openai/openai/deployments/<model_name>/chat/completions', methods=[HTTPMethod.POST])
+def handle_evaluator_prompt_with_mock_azure_openai(model_name):
+    """
+    Function handling Moonshot prompt request for an mock response.
+    """
+    print(f"Received request for model: {model_name}")
+    return handle_moonshot_request(
+        http_request=request,
+        model_name=INFERENCE_MODEL_MOCK
+    )
+
+
 if __name__ == '__main__':
     app.run(debug=FLASK_IS_DEBUG_MODE, port=FLASK_APP_PORT)
