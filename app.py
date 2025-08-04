@@ -156,6 +156,22 @@ def handle_evaluator_prompt_with_mock_azure_openai(model_name):
         model_name=INFERENCE_MODEL_MOCK
     )
 
+@app.route('/evaluate/mock/togetherai/chat/completions', methods=[HTTPMethod.POST])
+def handle_evaluator_prompt_with_mock_togetherai():
+    """
+    Function handling Moonshot prompt request for an mock response.
+    """
+    return app.response_class(
+            response=json.dumps({
+                "choices": [{"message": {
+                    "role": "assistant",
+                    "content": "Together AI Response"
+                    }}]
+                }),
+            status=HTTPStatus.OK,
+            mimetype=FLASK_HTTP_MEDIA_TYPE
+        )
+
 
 if __name__ == '__main__':
     app.run(debug=FLASK_IS_DEBUG_MODE, port=FLASK_APP_PORT)
